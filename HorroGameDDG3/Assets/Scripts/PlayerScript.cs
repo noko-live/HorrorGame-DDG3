@@ -16,7 +16,13 @@ public class PlayerScript : MonoBehaviour
     [SerializeField] float leanSpeedDuration = 0.25f;
     bool animLock = false;
     [SerializeField] private float speed = 12f;
+    AudioSource audioSource;
+    public AudioClip FootStepSounds;
 
+    Gamemanager gm;
+
+    public float sideTurnAmount = 20f;
+    bool clickLock = false;
 
     // ran into a problem where the scale of the level is alot smaller than how fast the player is moving
     //i wanted to have value that changes all of that at once;
@@ -34,26 +40,31 @@ public class PlayerScript : MonoBehaviour
         leanSpeedDuration *= mod;
         speed *= mod;
 
+        audioSource = GetComponent<AudioSource>();
+        gm = Gamemanager.Instance;
     }
 
 
     private void Update()
     {
-        if (Input.GetMouseButtonDown(0))
+
+        if (!clickLock)
         {
-            playerWalking = true;
-            Walk();
+            if (Input.GetMouseButtonDown(0))
+            {
+                playerWalking = true;
+                Walk();
+            }
         }
 
         if (Input.GetMouseButtonUp(0))
         {
             playerWalking = false;
+            StopFootsteps();
             //walkRoutine = null;
-
         }
 
-
-        if (playerWalking)
+        if (playerWalking && !clickLock)
         {
             transform.Translate(Vector3.forward * Time.deltaTime * speed);
         }
@@ -66,6 +77,7 @@ public class PlayerScript : MonoBehaviour
     {
         if(walkRoutine == null)
         {
+            PlayFootstep();
             walkRoutine = StartCoroutine(CameraWalkAnim());
         }
     }
@@ -115,19 +127,37 @@ public class PlayerScript : MonoBehaviour
         
         while (playerWalking)
         {
-            if(targetRotation.y == -20f)
+
+            if (!gm.getKeyStatus())
             {
-                //Means player is facing left, so we change the target rotation to the right
-                leanedStart = targetRotation;
-                targetRotation = new Vector3(player.transform.eulerAngles.x, 20f, player.transform.eulerAngles.z);
+                if (targetRotation.y == -sideTurnAmount)
+                {
+                    //Means player is facing left, so we change the target rotation to the right
+                    leanedStart = targetRotation;
+                    targetRotation = new Vector3(player.transform.eulerAngles.x, sideTurnAmount, player.transform.eulerAngles.z);
+                }
+                else
+                {
+                    //redo the opposite
+                    leanedStart = targetRotation;
+                    targetRotation = new Vector3(player.transform.eulerAngles.x, -sideTurnAmount, player.transform.eulerAngles.z);
+                }
             }
             else
             {
-                //redo the opposite
-                leanedStart = targetRotation;
-                targetRotation = new Vector3(player.transform.eulerAngles.x, -20f, player.transform.eulerAngles.z);
+                if (targetRotation.y == -sideTurnAmount + 180f)
+                {
+                    //Means player is facing left, so we change the target rotation to the right
+                    leanedStart = targetRotation;
+                    targetRotation = new Vector3(player.transform.eulerAngles.x, sideTurnAmount + 180f, player.transform.eulerAngles.z);
+                }
+                else
+                {
+                    //redo the opposite
+                    leanedStart = targetRotation;
+                    targetRotation = new Vector3(player.transform.eulerAngles.x, -sideTurnAmount + 180f, player.transform.eulerAngles.z);
+                }
             }
-
 
             elapsed = 0f;
             duration = turnDuration;
@@ -165,10 +195,56 @@ public class PlayerScript : MonoBehaviour
             yield return null;
         }
 
-        yield return new WaitForSeconds(.1f);
+        yield return new WaitForSeconds(.15f);
         walkRoutine = null;
     }
 
+
+    public void FlipPlayer()
+    {
+        StartCoroutine(_FlipPlayer());
+    }
+
+    IEnumerator _FlipPlayer()
+    {
+        Vector3 startingRotation = transform.eulerAngles;
+
+        Debug.Log("Coroutine ran");
+
+        Vector3 startRotation = transform.eulerAngles;
+        Vector3 targetRotation = startRotation;
+
+
+
+        float duration = .5f;
+        float elapsed = 0f;
+
+        targetRotation = new Vector3(transform.eulerAngles.x, 180f, transform.eulerAngles.z);
+
+        while (elapsed < duration)
+        {
+
+            elapsed += Time.deltaTime;
+
+            float currentT = Mathf.Clamp01(elapsed / duration);
+
+            Vector3 currentEuler = Vector3.Lerp(startRotation, targetRotation, currentT);
+            transform.rotation = Quaternion.Euler(currentEuler);
+
+            yield return null;
+        }
+
+
+        Vector3 finalRotation = new Vector3(transform.eulerAngles.x, 180f, transform.eulerAngles.z);
+
+        transform.rotation = Quaternion.Euler(finalRotation);
+
+    }
+
+    public void ClearWalkRoutine()
+    {
+        walkRoutine = null;
+    }
 
     public bool isPlayerWalking()
     {
@@ -176,5 +252,19 @@ public class PlayerScript : MonoBehaviour
     }
 
 
+    void PlayFootstep()
+    {
+        //audioSource.clip = FootStepSounds;
+        audioSource.PlayOneShot(FootStepSounds);
+    }
+    public void StopFootsteps()
+    {
+        audioSource.Stop();
+    }
+
+    public void setClickLock(bool i)
+    {
+        clickLock = i;
+    }
 
 }
